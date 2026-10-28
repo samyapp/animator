@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"></head><body>
+<title>Snap Flip Studio</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Nunito:wght@600;800&display=swap">
+<style>
+/* Layout: one-screen toy — stage on a cutting mat, chunky control row under it, film strip along the bottom */
+:root{
+  --paper:#fff6e3;       /* craft-paper ground */
+  --mat:#2f6f62;         /* green cutting mat around the stage */
+  --mat-line:#3f8576;
+  --ink:#2b2340;
+  --tomato:#ef4b36;      /* the snap button */
+  --tomato-dk:#b8321f;
+  --sun:#ffc93c;
+  --sky:#4aa3df;
+  --sky-dk:#2d78ad;
+  --white:#ffffff;
+  --muted:#7a6f8a;
+  --display:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  --body:"Nunito","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:var(--paper);color:var(--ink);font-family:var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+  -webkit-tap-highlight-color:transparent;
+  -webkit-user-select:none;user-select:none;
+}
+.app{max-width:880px;margin:0 auto;padding-block:12px 20px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(26px,5vw,36px);margin:0;line-height:1;letter-spacing:.5px}
+h1 span{color:var(--tomato)}
+.pill{
+  font-family:var(--display);font-weight:700;font-size:18px;border:3px solid var(--ink);
+  background:var(--white);color:var(--ink);border-radius:999px;padding:6px 16px 4px;cursor:pointer;
+  box-shadow:0 4px 0 var(--ink);display:inline-flex;align-items:center;gap:8px;
+}
+.pill:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+.pill svg{width:20px;height:20px}
+
+/* The mat with a grid, like a hobby cutting mat */
+.mat{
+  background:var(--mat);border-radius:22px;padding:14px;border:3px solid var(--ink);
+  background-image:linear-gradient(var(--mat-line) 1px,transparent 1px),linear-gradient(90deg,var(--mat-line) 1px,transparent 1px);
+  background-size:24px 24px;background-position:-1px -1px;
+}
+.stage{
+  position:relative;width:100%;max-width:100%;aspect-ratio:4/3;background:#1c1830;border-radius:12px;overflow:hidden;
+  border:3px solid var(--ink);
+}
+.stage video,.stage img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;max-width:none}
+#ghost{opacity:.38;pointer-events:none}
+.flash{position:absolute;inset:0;background:var(--white);opacity:0;pointer-events:none}
+.flash.go{animation:flash .35s ease-out}
+@keyframes flash{0%{opacity:.9}100%{opacity:0}}
+.badge{
+  position:absolute;left:10px;top:10px;font-family:var(--display);font-weight:800;font-size:18px;
+  background:var(--sun);color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:2px 12px 0;
+}
+.counter{
+  position:absolute;right:10px;top:10px;font-family:var(--display);font-weight:800;font-size:22px;
+  background:var(--white);color:var(--ink);border:3px solid var(--ink);border-radius:12px;padding:0 12px;
+  font-variant-numeric:tabular-nums;min-width:48px;text-align:center;
+}
+.hint{
+  position:absolute;left:50%;bottom:12px;transform:translateX(-50%);max-width:calc(100% - 24px);
+  background:var(--white);color:var(--ink);border:3px solid var(--ink);border-radius:14px;
+  padding:6px 14px 4px;font-family:var(--display);font-weight:700;font-size:clamp(15px,2.6vw,19px);text-align:center;line-height:1.2;
+}
+.empty{position:absolute;inset:0;display:grid;place-items:center;color:var(--white);font-family:var(--display);font-weight:700;font-size:22px;text-align:center;padding:20px}
+.empty svg{width:72px;height:72px;display:block;margin:0 auto 8px;opacity:.85}
+
+/* Controls */
+.controls{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:12px}
+.side{display:flex;gap:12px;flex-wrap:wrap}
+.side.left{justify-content:flex-end}
+.side.right{justify-content:flex-start}
+.tool{
+  display:flex;flex-direction:column;align-items:center;gap:2px;width:82px;padding:10px 4px 6px;border-radius:20px;
+  border:3px solid var(--ink);background:var(--white);color:var(--ink);cursor:pointer;
+  box-shadow:0 5px 0 var(--ink);font-family:var(--display);font-weight:700;font-size:17px;line-height:1;
+}
+.tool svg{width:36px;height:36px}
+.tool:active{transform:translateY(4px);box-shadow:0 1px 0 var(--ink)}
+.tool:disabled{opacity:.4;cursor:default;transform:none;box-shadow:0 5px 0 var(--ink)}
+.tool.play{background:var(--sky);color:var(--white)}
+.tool.on{background:var(--sun)}
+.snap{
+  width:clamp(104px,22vw,132px);aspect-ratio:1;border-radius:50%;border:5px solid var(--ink);
+  background:radial-gradient(circle at 38% 32%,#ff7a62 0 18%,var(--tomato) 45%);
+  box-shadow:0 8px 0 var(--tomato-dk),0 8px 0 3px var(--ink);cursor:pointer;color:var(--white);
+  font-family:var(--display);font-weight:800;font-size:clamp(22px,4.6vw,28px);display:grid;place-items:center;
+  text-shadow:0 2px 0 var(--tomato-dk);
+}
+.snap:active{transform:translateY(6px);box-shadow:0 2px 0 var(--tomato-dk),0 2px 0 3px var(--ink)}
+.snap svg{width:44%;height:44%;margin-bottom:-6px}
+.snap small{display:block;font-size:.62em;line-height:1}
+
+.row2{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap}
+.speed{display:flex;border:3px solid var(--ink);border-radius:999px;overflow:hidden;background:var(--white);box-shadow:0 4px 0 var(--ink)}
+.speed button{
+  border:0;background:transparent;font-size:24px;padding:6px 16px;cursor:pointer;line-height:1;color:var(--ink);
+}
+.speed button+button{border-left:3px solid var(--ink)}
+.speed button[aria-pressed="true"]{background:var(--sun)}
+.label{font-family:var(--display);font-weight:700;font-size:17px;color:var(--muted)}
+
+/* Film strip */
+.strip{
+  background:var(--ink);border-radius:14px;padding:14px 10px;position:relative;
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;
+}
+.strip::before,.strip::after{
+  content:"";position:absolute;left:0;right:0;height:8px;
+  background:repeating-linear-gradient(90deg,transparent 0 8px,var(--paper) 8px 18px,transparent 18px 26px);
+  background-size:26px 8px;opacity:.85;
+}
+.strip::before{top:3px}.strip::after{bottom:3px}
+.frames{display:flex;gap:8px;min-height:72px;align-items:center;width:max-content}
+.thumb{
+  position:relative;width:96px;aspect-ratio:4/3;border-radius:6px;overflow:hidden;border:3px solid transparent;
+  padding:0;cursor:pointer;background:#433a5c;flex:none;
+}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.thumb span{
+  position:absolute;left:4px;bottom:3px;font-family:var(--display);font-weight:800;font-size:14px;color:var(--ink);
+  background:var(--white);border-radius:6px;padding:0 6px;line-height:1.3;
+}
+.thumb.sel{border-color:var(--sun)}
+.thumb.now{border-color:var(--sky)}
+.strip-empty{color:var(--paper);font-family:var(--display);font-weight:700;font-size:17px;padding:0 8px;opacity:.8}
+
+.toast{
+  position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);
+  background:var(--ink);color:var(--white);font-family:var(--display);font-weight:700;font-size:18px;
+  padding:8px 18px 6px;border-radius:14px;max-width:calc(100% - 32px);text-align:center;z-index:5;
+}
+.confirm{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;
+  background:var(--white);border:3px solid var(--ink);border-radius:16px;padding:10px 14px;font-family:var(--display);font-weight:700;font-size:19px}
+
+button:focus-visible{outline:4px solid var(--sky);outline-offset:3px}
+@media (max-width:560px){
+  .controls{grid-template-columns:1fr 1fr;grid-template-areas:"snap snap" "l r"}
+  .snap-wrap{grid-area:snap;justify-self:center}
+  .side.left{grid-area:l;justify-content:center}
+  .side.right{grid-area:r;justify-content:center}
+  .tool{width:72px;font-size:15px}
+  .tool svg{width:30px;height:30px}
+  .mat{padding:8px;border-radius:16px}
+}
+@media (prefers-reduced-motion:reduce){.flash.go{animation:none}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Snap <span>Flip</span> Studio</h1>
+    <button class="pill" id="newBtn" type="button">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      New film
+    </button>
+  </header>
+
+  <div id="confirmBox" class="confirm" hidden>
+    Throw away all the photos?
+    <button class="pill" id="yesNew" type="button">Yes</button>
+    <button class="pill" id="noNew" type="button">No</button>
+  </div>
+
+  <div class="mat">
+    <div class="stage" id="stage">
+      <video id="video" playsinline muted autoplay hidden></video>
+      <img id="still" alt="" hidden>
+      <img id="ghost" alt="" hidden>
+      <div class="empty" id="empty" hidden>
+        <div>
+          <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="4" stroke-linejoin="round"><rect x="6" y="18" width="52" height="36" rx="8"/><path d="M22 18l4-7h12l4 7"/><circle cx="32" cy="36" r="10"/></svg>
+          Tap the red button<br>to take your first photo
+        </div>
+      </div>
+      <div class="flash" id="flash"></div>
+      <div class="badge" id="badge" hidden>Example</div>
+      <div class="counter" id="counter">0</div>
+      <div class="hint" id="hint" hidden></div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="side left">
+      <button class="tool play" id="playBtn" type="button" aria-label="Play">
+        <svg id="playIcon" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4.5v15l13-7.5z"/></svg>
+        <span id="playLbl">Play</span>
+      </button>
+      <button class="tool on" id="ghostBtn" type="button" aria-pressed="true" aria-label="Ghost">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2a8 8 0 0 0-8 8v12l3-2.5 2.5 2.5 2.5-2.5 2.5 2.5 2.5-2.5L20 22V10a8 8 0 0 0-8-8zm-3 7.5a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2zm6 0a1.6 1.6 0 1 1 0 3.2 1.6 1.6 0 0 1 0-3.2z"/></svg>
+        Ghost
+      </button>
+    </div>
+    <div class="snap-wrap">
+      <button class="snap" id="snapBtn" type="button" aria-label="Take a photo">
+        <span>
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 3 7.2 5H4a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3.2L15 3H9zm3 5a5 5 0 1 1 0 10 5 5 0 0 1 0-10z"/></svg>
+          <small id="snapLbl">Snap!</small>
+        </span>
+      </button>
+    </div>
+    <div class="side right">
+      <button class="tool" id="binBtn" type="button" aria-label="Delete photo">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9 2h6l1 2h5v3H3V4h5l1-2zM5 8h14l-1.2 13a2 2 0 0 1-2 1.8H8.2a2 2 0 0 1-2-1.8L5 8z"/></svg>
+        Bin
+      </button>
+      <button class="tool" id="saveBtn" type="button" aria-label="Save video">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11 3h2v9.2l3.3-3.3 1.4 1.4L12 16 6.3 10.3l1.4-1.4 3.3 3.3V3zM4 18h16v3H4z"/></svg>
+        Save
+      </button>
+    </div>
+  </div>
+
+  <div class="row2">
+    <span class="label">Speed</span>
+    <div class="speed" role="group" aria-label="Speed">
+      <button type="button" data-fps="3" aria-label="Slow">🐢</button>
+      <button type="button" data-fps="6" aria-label="Medium" aria-pressed="true">🐇</button>
+      <button type="button" data-fps="12" aria-label="Fast">🚀</button>
+    </div>
+  </div>
+
+  <div class="strip" id="strip"><div class="frames" id="frames"></div></div>
+
+  <input type="file" id="fileIn" accept="image/*" capture="environment" hidden>
+  <canvas id="work" width="960" height="720" hidden></canvas>
+  <div class="toast" id="toast" hidden></div>
+</div>
+
+<script>
+(() => {
+  const W = 960, H = 720;
+  const $ = id => document.getElementById(id);
+  const video = $('video'), still = $('still'), ghost = $('ghost'), work = $('work');
+  const wctx = work.getContext('2d');
+
+  let frames = [];          // [{blob,url}]
+  let isExample = false;
+  let selected = null;      // index of a tapped thumbnail, or null for "live"
+  let playing = false, playTimer = null, playIdx = 0;
+  let fps = 6;
+  let ghostOn = true;
+  let stream = null;
+  let cameraState = 'idle'; // idle | on | failed
+
+  /* ---------- storage (IndexedDB, best effort) ---------- */
+  const DB = { db: null };
+  function openDB() {
+    return new Promise(res => {
+      try {
+        const r = indexedDB.open('snapflip', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('film');
+        r.onsuccess = () => { DB.db = r.result; res(); };
+        r.onerror = () => res();
+      } catch (e) { res(); }
+    });
+  }
+  function saveFilm() {
+    if (!DB.db || isExample) return;
+    try {
+      const tx = DB.db.transaction('film', 'readwrite');
+      tx.objectStore('film').put({ blobs: frames.map(f => f.blob), fps }, 'current');
+    } catch (e) {}
+  }
+  function loadFilm() {
+    return new Promise(res => {
+      if (!DB.db) return res(null);
+      try {
+        const g = DB.db.transaction('film').objectStore('film').get('current');
+        g.onsuccess = () => res(g.result || null);
+        g.onerror = () => res(null);
+      } catch (e) { res(null); }
+    });
+  }
+
+  /* ---------- helpers ---------- */
+  function drawCover(src, sw, sh) {
+    const s = Math.max(W / sw, H / sh);
+    const dw = sw * s, dh = sh * s;
+    wctx.fillStyle = '#000'; wctx.fillRect(0, 0, W, H);
+    wctx.drawImage(src, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+  const toBlob = () => new Promise(r => work.toBlob(r, 'image/jpeg', 0.85));
+  function addFrame(blob) {
+    if (isExample) clearFilm();
+    frames.push({ blob, url: URL.createObjectURL(blob) });
+    selected = null;
+    saveFilm();
+    render(true);
+  }
+  function clearFilm() {
+    stopPlay();
+    frames.forEach(f => URL.revokeObjectURL(f.url));
+    frames = []; selected = null; isExample = false;
+  }
+  let toastT;
+  function toast(msg, ms = 2600) {
+    const t = $('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastT); toastT = setTimeout(() => t.hidden = true, ms);
+  }
+  let actx;
+  function click() {
+    try {
+      actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'square'; o.frequency.value = 1400;
+      g.gain.setValueAtTime(0.15, actx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.08);
+      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.09);
+    } catch (e) {}
+  }
+  function flash() { const f = $('flash'); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
+
+  /* ---------- camera ---------- */
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { cameraState = 'failed'; return false; }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }, audio: false
+      });
+      video.srcObject = stream;
+      await video.play().catch(() => {});
+      cameraState = 'on';
+      return true;
+    } catch (e) {
+      cameraState = 'failed';
+      return false;
+    }
+  }
+
+  async function snap() {
+    if (playing) stopPlay();
+    if (cameraState === 'on' && video.videoWidth) {
+      drawCover(video, video.videoWidth, video.videoHeight);
+      click(); flash();
+      addFrame(await toBlob());
+      return;
+    }
+    if (cameraState === 'idle') {
+      // First tap turns the camera on. If it can't, fall back to the device's photo picker.
+      const ok = await startCamera();
+      if (ok) { if (isExample) clearFilm(); render(); toast('Camera on! Tap the red button to snap.'); }
+      else { render(); toast('Tap the red button again to use your camera app.', 3200); }
+      return;
+    }
+    $('fileIn').click();
+  }
+
+  $('fileIn').addEventListener('change', async e => {
+    const file = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const bmp = await createImageBitmap(file);
+      drawCover(bmp, bmp.width, bmp.height);
+      flash();
+      addFrame(await toBlob());
+    } catch (err) {
+      const img = new Image();
+      img.onload = async () => { drawCover(img, img.naturalWidth, img.naturalHeight); addFrame(await toBlob()); URL.revokeObjectURL(img.src); };
+      img.onerror = () => toast("That picture didn't work. Try another one.");
+      img.src = URL.createObjectURL(file);
+    }
+  });
+
+  /* ---------- playback ---------- */
+  function startPlay() {
+    if (frames.length < 2) { toast('Take at least 2 photos, then press Play.'); return; }
+    playing = true; selected = null; playIdx = 0;
+    tick();
+    playTimer = setInterval(tick, 1000 / fps);
+    render();
+  }
+  function tick() {
+    if (!frames.length) return stopPlay();
+    still.src = frames[playIdx % frames.length].url;
+    highlightNow(playIdx % frames.length);
+    $('counter').textContent = (playIdx % frames.length) + 1;
+    playIdx++;
+  }
+  function stopPlay() {
+    if (!playing) return;
+    playing = false; clearInterval(playTimer); playTimer = null;
+    render();
+  }
+  function highlightNow(i) {
+    document.querySelectorAll('.thumb').forEach((t, n) => t.classList.toggle('now', n === i));
+    const t = document.querySelectorAll('.thumb')[i];
+    if (t) t.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }
+
+  /* ---------- render ---------- */
+  function render(scrollEnd) {
+    const live = cameraState === 'on' && !playing && selected === null;
+    video.hidden = !live;
+    const last = frames.length ? frames[frames.length - 1].url : null;
+
+    if (!playing) {
+      if (selected !== null && frames[selected]) { still.src = frames[selected].url; still.hidden = false; }
+      else if (!live && last) { still.src = last; still.hidden = false; }
+      else still.hidden = true;
+    } else still.hidden = false;
+
+    ghost.hidden = !(live && ghostOn && last);
+    if (!ghost.hidden) ghost.src = last;
+
+    $('empty').hidden = !(frames.length === 0 && !live);
+    $('badge').hidden = !isExample;
+    $('counter').textContent = playing ? $('counter').textContent : (selected !== null ? selected + 1 : frames.length);
+
+    const hint = $('hint');
+    let msg = '';
+    if (isExample && !playing) msg = 'This is an example. Press Play to watch it, or the red button to start your own!';
+    else if (selected !== null && !playing) msg = 'Bin removes this photo. Tap it again to go back to the camera.';
+    else if (cameraState === 'on' && !playing && frames.length > 0 && frames.length < 3) msg = 'Move your toy a tiny bit, then snap again.';
+    hint.textContent = msg; hint.hidden = !msg;
+
+    $('snapLbl').textContent = cameraState === 'idle' ? 'Start' : 'Snap!';
+    $('playLbl').textContent = playing ? 'Stop' : 'Play';
+    $('playIcon').innerHTML = playing ? '<rect x="6" y="6" width="12" height="12" rx="2"/>' : '<path d="M7 4.5v15l13-7.5z"/>';
+    $('playBtn').setAttribute('aria-label', playing ? 'Stop' : 'Play');
+    $('binBtn').disabled = !frames.length || playing;
+    $('saveBtn').disabled = frames.length < 2 || playing;
+
+    const box = $('frames');
+    box.innerHTML = '';
+    if (!frames.length) {
+      const p = document.createElement('div'); p.className = 'strip-empty';
+      p.textContent = 'Your photos will line up here.'; box.appendChild(p);
+    }
+    frames.forEach((f, i) => {
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'thumb' + (selected === i ? ' sel' : '');
+      b.setAttribute('aria-label', 'Photo ' + (i + 1));
+      const im = document.createElement('img'); im.src = f.url; im.alt = '';
+      const n = document.createElement('span'); n.textContent = i + 1;
+      b.append(im, n);
+      b.onclick = () => { stopPlay(); selected = selected === i ? null : i; render(); };
+      box.appendChild(b);
+    });
+    if (scrollEnd) $('strip').scrollLeft = $('strip').scrollWidth;
+  }
+
+  /* ---------- buttons ---------- */
+  $('snapBtn').onclick = snap;
+  $('playBtn').onclick = () => playing ? stopPlay() : startPlay();
+  $('ghostBtn').onclick = () => {
+    ghostOn = !ghostOn;
+    $('ghostBtn').classList.toggle('on', ghostOn);
+    $('ghostBtn').setAttribute('aria-pressed', ghostOn);
+    render();
+  };
+  $('binBtn').onclick = () => {
+    if (!frames.length) return;
+    const i = selected !== null ? selected : frames.length - 1;
+    URL.revokeObjectURL(frames[i].url);
+    frames.splice(i, 1);
+    if (!frames.length) isExample = false;
+    selected = null;
+    saveFilm(); render();
+  };
+  document.querySelectorAll('.speed button').forEach(b => b.onclick = () => {
+    fps = +b.dataset.fps;
+    document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    if (playing) { clearInterval(playTimer); playTimer = setInterval(tick, 1000 / fps); }
+    saveFilm();
+  });
+  $('newBtn').onclick = () => {
+    if (!frames.length || isExample) { clearFilm(); saveFilm(); render(); return; }
+    $('confirmBox').hidden = false;
+  };
+  $('noNew').onclick = () => $('confirmBox').hidden = true;
+  $('yesNew').onclick = () => { $('confirmBox').hidden = true; clearFilm(); saveFilm(); render(); toast('Fresh film ready!'); };
+
+  /* ---------- save as video ---------- */
+  $('saveBtn').onclick = async () => {
+    if (frames.length < 2) return;
+    if (typeof MediaRecorder === 'undefined' || !work.captureStream) { toast("This browser can't make videos."); return; }
+    const types = ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp9', 'video/webm'];
+    const mime = types.find(t => MediaRecorder.isTypeSupported(t));
+    if (!mime) { toast("This browser can't make videos."); return; }
+    const ext = mime.startsWith('video/mp4') ? 'mp4' : 'webm';
+    $('saveBtn').disabled = true; toast('Making your video…', 60000);
+
+    const imgs = await Promise.all(frames.map(f => createImageBitmap(f.blob)));
+    const loops = Math.max(1, Math.ceil(3 / (frames.length / fps))); // at least ~3 seconds
+    const rec = new MediaRecorder(work.captureStream(30), { mimeType: mime, videoBitsPerSecond: 4e6 });
+    const chunks = [];
+    rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+    const done = new Promise(r => rec.onstop = r);
+    rec.start();
+    const total = imgs.length * loops, step = 1000 / fps;
+    for (let i = 0; i < total; i++) {
+      wctx.drawImage(imgs[i % imgs.length], 0, 0, W, H);
+      await new Promise(r => setTimeout(r, step));
+    }
+    rec.stop(); await done;
+    const blob = new Blob(chunks, { type: mime });
+    const name = 'my-animation.' + ext;
+    $('saveBtn').disabled = false;
+
+    let downloads = null;
+    try { downloads = window.claude && window.claude.use ? await window.claude.use('downloads') : null; } catch (e) {}
+    if (downloads) {
+      try { await downloads.save({ filename: name, data: blob }); toast('Video saved!'); }
+      catch (e) { toast(e && e.code === 'declined' ? 'Not saved.' : "Couldn't save the video here."); }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    toast('Video saved!');
+  };
+
+  /* ---------- example film: a ball bouncing across a table ---------- */
+  async function makeExample() {
+    const n = 10, out = [];
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      wctx.fillStyle = '#ffe9b8'; wctx.fillRect(0, 0, W, H);
+      wctx.fillStyle = '#c98a4b'; wctx.fillRect(0, 540, W, 180);           // table
+      wctx.fillStyle = '#b4763a'; for (let x = 0; x < W; x += 120) wctx.fillRect(x, 540, 6, 180);
+      const x = 140 + t * 680;
+      const bounce = Math.abs(Math.sin(t * Math.PI * 2));
+      const y = 470 - bounce * 300;
+      const squash = bounce < 0.15 ? 1.25 : 1;
+      wctx.fillStyle = 'rgba(0,0,0,.18)';
+      wctx.beginPath(); wctx.ellipse(x, 548, 70 - bounce * 30, 14, 0, 0, Math.PI * 2); wctx.fill();
+      wctx.save(); wctx.translate(x, y + (squash > 1 ? 10 : 0)); wctx.scale(squash, 1 / squash);
+      wctx.fillStyle = '#ef4b36'; wctx.beginPath(); wctx.arc(0, 0, 70, 0, Math.PI * 2); wctx.fill();
+      wctx.fillStyle = '#ffffff'; wctx.beginPath(); wctx.arc(-24, -24, 16, 0, Math.PI * 2); wctx.fill();
+      wctx.restore();
+      wctx.fillStyle = '#2b2340'; wctx.font = '700 36px "Baloo 2", sans-serif';
+      wctx.fillText('Example ' + (i + 1), 30, 60);
+      const blob = await toBlob();
+      out.push({ blob, url: URL.createObjectURL(blob) });
+    }
+    return out;
+  }
+
+  /* ---------- boot ---------- */
+  (async () => {
+    render();
+    await openDB();
+    const saved = await loadFilm();
+    if (saved && saved.blobs && saved.blobs.length) {
+      frames = saved.blobs.map(b => ({ blob: b, url: URL.createObjectURL(b) }));
+      if (saved.fps) {
+        fps = saved.fps;
+        document.querySelectorAll('.speed button').forEach(x => x.setAttribute('aria-pressed', +x.dataset.fps === fps));
+      }
+    } else {
+      frames = await makeExample();
+      isExample = true;
+    }
+    render(true);
+  })();
+
+  document.addEventListener('visibilitychange', () => { if (document.hidden) stopPlay(); });
+})();
+</script>
+
+</body></html>
